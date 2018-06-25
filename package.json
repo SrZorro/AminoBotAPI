@@ -1,0 +1,30 @@
+{
+  "name": "aminoclient",
+  "version": "1.0.0",
+  "description": "AminoClient bot API wrapper.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node cli.ts"
+  },
+  "author": "Marc 'Fox' Salva Montaner <fox@foxdev.io>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/SrZorro/AminoBotAPI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SrZorro/AminoBotAPI"
+  },
+  "dependencies": {
+    "aminoclient": "^1.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^10.3.4",
+    "@types/uuid": "^3.4.3",
+    "ts-node": "^6.1.1",
+    "tslint": "^5.10.0",
+    "typescript": "^2.9.2"
+  }
+}
