@@ -18,6 +18,7 @@ export default class Thread {
     private pollingInterval: number = 2500;
     private onMessageListener: Map<string | RegExp, (community: IMessage) => void> = new Map();
     private lastMessageDate: Moment.Moment = Moment(0);
+    public IsDead: boolean = false;
     // private onMessageListener: (communityPattern: string | RegExp, listener: (community: IMessage) => void;
     public info: AminoTypes.IAminoThread;
     constructor(ndcId: number, thread: AminoTypes.IAminoThread, listener: (thread: Thread, error: Error | null) => void) {
@@ -29,29 +30,35 @@ export default class Thread {
 
     private async longPolling() {
         debug(`Polling start`);
-        const pGetThreadMessages = AminoClient.getThreadMessages(this.ndcId, this.info.threadId, 0, 50); // This is shit
+        let pGetThreadMessages;
+        try {
+            pGetThreadMessages = AminoClient.getThreadMessages(this.ndcId, this.info.threadId, 0, 50); // This is shit
 
-        // Promise all
-        const threadMessages = await pGetThreadMessages;
-        threadMessages.reverse();
+            // Promise all
+            const threadMessages = await pGetThreadMessages;
+            threadMessages.reverse();
 
-        if (this.lastMessageDate.isSame(Moment(0)))
-            this.lastMessageDate = Moment(threadMessages[threadMessages.length - 1].createdTime);
+            if (this.lastMessageDate.isSame(Moment(0)))
+                this.lastMessageDate = Moment(threadMessages[threadMessages.length - 1].createdTime);
 
-        for (const message of threadMessages) {
-            if (this.lastMessageDate.isBefore(Moment(message.createdTime))) {
-                this.lastMessageDate = Moment(message.createdTime);
-                this.emitMessage(message);
+            for (const message of threadMessages) {
+                if (this.lastMessageDate.isBefore(Moment(message.createdTime))) {
+                    this.lastMessageDate = Moment(message.createdTime);
+                    this.emitMessage(message);
+                }
             }
-        }
 
-        debug(`Polling end`);
-        if (this.initListener) {
-            this.initListener(this, null);
-            delete this.initListener;
+            debug(`Polling end`);
+            if (this.initListener) {
+                this.initListener(this, null);
+                delete this.initListener;
+            }
+            await sleep(this.pollingInterval);
+            this.longPolling();
+        } catch (e) {
+            // Failed, maybe its dead, stop thread polling and mark it as dead
+            this.IsDead = true;
         }
-        await sleep(this.pollingInterval);
-        this.longPolling();
     }
 
     private emitMessage(message: AminoTypes.IAminoMessage) {

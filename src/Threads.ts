@@ -10,12 +10,13 @@ function sleep(ms: number) {
 
 export default class Threads {
     private ndcId: number;
-    private listenThreads: Thread[] = [];
+    private listenThreads: Map<string, Thread> = new Map();
     public joinedThreads: AminoTypes.IAminoThread[] = [];
     public publicThreads: AminoTypes.IAminoThread[] = [];
     private pollingInterval: number = 5000;
     public isReady: boolean = false;
     private initListener?: () => void;
+    private onHandlers: Array<() => void> = [];
     constructor(ndcId: number) {
         this.ndcId = ndcId;
     }
@@ -30,7 +31,7 @@ export default class Threads {
     private async longPolling() {
         debug(`Polling start`);
         const pGetJoinedThreads = AminoClient.getJoinedChats(this.ndcId, 0, 15 /* Ugly, what if more than 15? */);
-        const pGetPublicThreads = AminoClient.getPublicChats(this.ndcId, 0, 15); // Contains joined chats, what about that?
+        const pGetPublicThreads = AminoClient.getPublicChats(this.ndcId, 0, 15);
 
         // Promise all
         this.joinedThreads = await pGetJoinedThreads;
@@ -42,27 +43,49 @@ export default class Threads {
             delete this.initListener;
             this.isReady = true;
         }
+
+        this.destroyDeadThreads(); // Destroy deprecated threads
+        this.onHandlers.forEach((onHandler) => onHandler()); // Update if there is any new thread
+
         await sleep(this.pollingInterval);
         this.longPolling();
     }
 
-    public joined(threadPattern: string | RegExp, listener: (thread: Thread, err: Error | null) => void) {
-        debug("Joined pipe");
-        const targetThread = this.joinedThreads.find((thread) => {
-            debug(thread.title);
-            if (threadPattern instanceof RegExp) {
-                if (typeof thread.title !== "undefined" && thread.title.match(threadPattern)) return true;
-            } else {
-                if (thread.title !== null && thread.title === threadPattern) return true;
-            }
-            return false;
+    private destroyDeadThreads() {
+        this.listenThreads.forEach((thread, key) => {
+            if (thread.IsDead)
+                this.listenThreads.delete(key);
         });
+    }
 
-        if (targetThread === undefined) {
-            listener({} as Thread, new Error(`Thread not found. '${threadPattern}' can't be matched with any joined thread.`));
-        } else {
-            const thread = new Thread(this.ndcId, targetThread, listener.bind(this));
-            this.listenThreads.push(thread);
-        }
+    public on(threadPattern: string | RegExp, joinedThreadsOnly: boolean, listener: (thread: Thread, err: Error | null) => void) {
+        this.onHandlers.push(() => {
+            debug("Joined pipe");
+            const threads = joinedThreadsOnly ? this.joinedThreads : this.publicThreads;
+
+            const targetThreads = threads.filter((thread) => {
+                debug(thread.title);
+                if (threadPattern instanceof RegExp) {
+                    if (typeof thread.title !== "undefined" && thread.title.match(threadPattern)) return true;
+                } if (threadPattern === "*") {
+                    return true;
+                } else {
+                    if (thread.title !== null && thread.title === threadPattern) return true;
+                }
+                return false;
+            });
+
+            if (targetThreads.length === 0) {
+                listener({} as Thread, new Error(`Thread not found. '${threadPattern}' can't be matched with any joined thread.`));
+            } else {
+                for (const targetThread of targetThreads) {
+                    if (!this.listenThreads.has(targetThread.threadId)) {
+                        const thread = new Thread(this.ndcId, targetThread, listener.bind(this));
+                        this.listenThreads.set(targetThread.threadId, thread);
+                    }
+                }
+            }
+        });
+        this.onHandlers[this.onHandlers.length - 1]();
     }
 }
