@@ -71,6 +71,7 @@ export default class Threads {
                     return true;
                 } else {
                     if (thread.title !== null && thread.title === threadPattern) return true;
+                    if (thread.uid === threadPattern) return true;
                 }
                 return false;
             });
