@@ -9,6 +9,7 @@ function sleep(ms: number) {
 }
 
 interface IMessage extends AminoTypes.IAminoMessage {
+    original: AminoTypes.IAminoMessage;
     send: (msg: string) => Promise<void>;
 }
 
@@ -65,6 +66,7 @@ export default class Thread {
         if (message.content === null) return;
         const resp: IMessage = {
             ...message,
+            original: message,
             send: async (msg: string) => {
                 AminoClient.sendMessageInThread(this.ndcId, this.info.threadId, msg);
             }
