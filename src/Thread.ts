@@ -1,6 +1,7 @@
 import AminoClient from "aminoclient";
 import * as AminoTypes from "aminoclient/dist/AminoTypes";
 import * as Debug from "debug";
+import * as os from "os";
 const debug = Debug("AminoBot:Thread");
 import * as Moment from "moment";
 
@@ -8,9 +9,11 @@ function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-interface IMessage extends AminoTypes.IAminoMessage {
+export interface IMessage extends AminoTypes.IAminoMessage {
     original: AminoTypes.IAminoMessage;
     send: (msg: string) => Promise<void>;
+    reply: (msg: string) => Promise<void>;
+    sendMedia: (b64: string, mediaType: string) => Promise<void>;
 }
 
 export default class Thread {
@@ -69,6 +72,12 @@ export default class Thread {
             original: message,
             send: async (msg: string) => {
                 AminoClient.sendMessageInThread(this.ndcId, this.info.threadId, msg);
+            },
+            sendMedia: async (b64: string, mediaType) => {
+                AminoClient.sendMediaInThread(this.ndcId, this.info.threadId, b64, mediaType);
+            },
+            reply: async (msg: string) => {
+                AminoClient.sendMessageInThread(this.ndcId, this.info.threadId, `${message.content ? message.content : `*message from ${message.author.nickname}*`}${os.EOL}${os.EOL}${msg}`);
             }
         };
 
